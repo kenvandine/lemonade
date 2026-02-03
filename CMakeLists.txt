@@ -7,6 +7,10 @@ endif()
 
 project(lemon_cpp VERSION 9.2.0)
 
+# Option to build the standalone tray application (lemonade-server-tray)
+# This requires GTK3, libappindicator3, and libnotify on Linux
+option(BUILD_TRAY_APP "Build the standalone tray application (lemonade-server-tray)" ON)
+
 # Set default install prefix to /opt on Linux if not specified
 if(UNIX AND NOT APPLE AND CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
     set(CMAKE_INSTALL_PREFIX "/opt" CACHE PATH "Install prefix" FORCE)
@@ -558,8 +562,14 @@ else()
     message(STATUS "Install Node.js to enable: https://nodejs.org/")
 endif()
 
-# Add tray application subdirectory
+# Add tray application subdirectory (lemonade-server CLI tool)
 add_subdirectory(src/cpp/tray)
+
+# Add standalone tray application (lemonade-server-tray)
+# This is a separate process that shows a system tray icon and communicates with lemonade-server via HTTP
+if(BUILD_TRAY_APP)
+    add_subdirectory(src/tray)
+endif()
 
 
 # ============================================================
