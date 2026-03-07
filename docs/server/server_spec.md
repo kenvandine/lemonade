@@ -1478,7 +1478,8 @@ curl http://localhost:8000/api/v1/health
     "llm":1,
     "reranking":1,
     "tts":1
-  }
+  },
+  "idle_timeout": 0
 }
 ```
 
@@ -1503,6 +1504,7 @@ curl http://localhost:8000/api/v1/health
   - `audio` - Maximum speech-to-text models
   - `image` - Maximum image models
   - `tts` - Maximum text-to-speech models
+- `idle_timeout` - Idle timeout in seconds. Models idle longer than this are automatically unloaded to free GPU/NPU resources. `0` means disabled (set via `--idle-timeout`)
 - `websocket_port` - *(optional)* Port of the WebSocket server for the [Realtime Audio Transcription API](#realtime-audio-transcription-api-websocket). Only present when the WebSocket server is running. The port is OS-assigned.
 
 ### `GET /api/v1/stats` <sub>![Status](https://img.shields.io/badge/status-fully_available-green)</sub>

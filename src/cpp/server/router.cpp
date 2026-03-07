@@ -15,18 +15,27 @@
 namespace lemon {
 
 Router::Router(const json& default_options, const std::string& log_level, ModelManager* model_manager,
-               int max_loaded_models, BackendManager* backend_manager)
+               int max_loaded_models, BackendManager* backend_manager, int idle_timeout)
     : default_options_(default_options), log_level_(log_level), model_manager_(model_manager),
-      max_loaded_models_(max_loaded_models), backend_manager_(backend_manager) {
+      max_loaded_models_(max_loaded_models), backend_manager_(backend_manager),
+      idle_timeout_(idle_timeout) {
 
     if (max_loaded_models_ == -1) {
     LOG(DEBUG, "Router") << "Max loaded models per type: unlimited" << std::endl;
     } else {
     LOG(DEBUG, "Router") << "Max loaded models per type: " << max_loaded_models_ << std::endl;
     }
+
+    if (idle_timeout_ > 0) {
+    LOG(INFO, "Router") << "Idle timeout: " << idle_timeout_ << " seconds" << std::endl;
+        start_idle_monitor();
+    } else {
+    LOG(DEBUG, "Router") << "Idle timeout: disabled" << std::endl;
+    }
 }
 
 Router::~Router() {
+    stop_idle_monitor();
     LOG(DEBUG, "Router") << "Destructor: unloading all models" << std::endl;
     unload_model("");  // Unload all
 }
@@ -744,6 +753,68 @@ void Router::responses_stream(const std::string& request_body, httplib::DataSink
     execute_streaming(request_body, sink, [&](WrappedServer* server) {
         server->forward_streaming_request("/v1/responses", request_body, sink);
     });
+}
+
+// --- Idle timeout auto-unload ---
+
+void Router::start_idle_monitor() {
+    idle_monitor_running_ = true;
+    idle_monitor_thread_ = std::thread(&Router::idle_monitor_loop, this);
+}
+
+void Router::stop_idle_monitor() {
+    if (idle_monitor_running_) {
+        idle_monitor_running_ = false;
+        idle_monitor_cv_.notify_all();
+        if (idle_monitor_thread_.joinable()) {
+            idle_monitor_thread_.join();
+        }
+    }
+}
+
+void Router::idle_monitor_loop() {
+    // Check interval: half the idle timeout (min 15s, max 60s)
+    int check_interval = std::max(15, std::min(60, idle_timeout_ / 2));
+
+    LOG(DEBUG, "Router") << "Idle monitor started (check every " << check_interval << "s)" << std::endl;
+
+    while (idle_monitor_running_) {
+        {
+            std::unique_lock<std::mutex> lock(idle_monitor_mutex_);
+            idle_monitor_cv_.wait_for(lock, std::chrono::seconds(check_interval),
+                                      [this] { return !idle_monitor_running_.load(); });
+        }
+
+        if (!idle_monitor_running_) break;
+
+        // Collect idle servers under the load lock
+        std::vector<WrappedServer*> to_evict;
+        {
+            std::lock_guard<std::mutex> lock(load_mutex_);
+
+            auto now = std::chrono::steady_clock::now();
+
+            for (const auto& server : loaded_servers_) {
+                auto idle_duration = std::chrono::duration_cast<std::chrono::seconds>(
+                    now - server->get_last_access_time());
+
+                if (idle_duration.count() >= idle_timeout_ && !server->is_busy()) {
+                    LOG(INFO, "Router") << "Model idle for " << idle_duration.count()
+                              << "s (timeout: " << idle_timeout_ << "s): "
+                              << server->get_model_name() << std::endl;
+                    to_evict.push_back(server.get());
+                }
+            }
+
+            for (auto* server : to_evict) {
+                LOG(INFO, "Router") << "Auto-unloading idle model: "
+                          << server->get_model_name() << std::endl;
+                evict_server(server);
+            }
+        }
+    }
+
+    LOG(DEBUG, "Router") << "Idle monitor stopped" << std::endl;
 }
 
 } // namespace lemon

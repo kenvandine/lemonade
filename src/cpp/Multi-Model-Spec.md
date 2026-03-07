@@ -61,6 +61,24 @@ When loading a WrappedServer with an NPU recipe, any existing NPU-using WrappedS
 
 ModelInfo and WrappedServer include a bitmask enum field for tracking target devices, enabling checks like `if (model.device & Device::NPU)`.
 
+### Idle Timeout Auto-Unload
+
+The `--idle-timeout N` argument enables automatic unloading of models that have been idle for `N` seconds. This frees GPU/NPU resources when models are not actively in use. The default is `0` (disabled).
+
+When enabled, a background monitor thread periodically checks each loaded model's last access time. If a model has been idle longer than the timeout and is not currently processing a request, it is automatically evicted. Models are reloaded on demand when the next inference request arrives (via auto-load).
+
+Examples:
+- `--idle-timeout 300` → unload models after 5 minutes of inactivity
+- `--idle-timeout 60` → unload models after 1 minute of inactivity
+- `--idle-timeout 0` → disabled (default, models stay loaded until manually unloaded or evicted by LRU)
+
+Key behaviors:
+- The idle timer resets on every inference request (chat, completion, embedding, etc.)
+- Models that are actively processing a request are never auto-unloaded
+- The monitor check interval scales with the timeout (half the timeout, clamped to 15-60 seconds)
+- Works alongside LRU eviction — both mechanisms can coexist
+- NPU exclusivity rules are preserved during auto-unload
+
 ## Concurrency
 
 1. **Busy WrappedServers are protected:** A WrappedServer actively fulfilling an inference request cannot be evicted until it finishes. Pending loads queue indefinitely.

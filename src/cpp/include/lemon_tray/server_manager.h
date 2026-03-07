@@ -52,7 +52,8 @@ public:
         bool is_ephemeral,
         const std::string& host,
         int max_loaded_models,
-        const std::string& extra_models_dir
+        const std::string& extra_models_dir,
+        int idle_timeout = 0
     );
 
     bool stop_server();
@@ -112,6 +113,7 @@ private:
     std::string api_key_;
     int port_;
     int max_loaded_models_;
+    int idle_timeout_;
     nlohmann::json recipe_options_;
     bool show_console_;
     bool is_ephemeral_;  // Suppress output for ephemeral servers

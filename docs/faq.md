@@ -157,6 +157,31 @@
    > Note: On Windows, the GPU can access both unified RAM and dedicated GPU RAM, but the CPU is blocked from accessing dedicated GPU RAM. For this reason, allocating too much dedicated GPU RAM can interfere with model loading, which requires the CPU to access a substantial amount unified RAM.
 
 
+### 5. **How do I free GPU resources when a model is loaded but not in use?**
+
+   When a model is loaded, its backend process holds GPU/NPU memory even when idle. You can use the `--idle-timeout` option to automatically unload models after a period of inactivity:
+
+   ```bash
+   # Unload models after 5 minutes of inactivity
+   lemonade-server serve --idle-timeout 300
+
+   # Or via environment variable
+   export LEMONADE_IDLE_TIMEOUT=300
+   lemonade-server serve
+   ```
+
+   Models are automatically reloaded on demand when the next request arrives. The default is `0` (disabled), which preserves the previous behavior of keeping models loaded until manually unloaded.
+
+   You can also manually unload models at any time using the `/api/v1/unload` endpoint:
+
+   ```bash
+   # Unload all models
+   curl -X POST http://localhost:8000/api/v1/unload
+
+   # Unload a specific model
+   curl -X POST http://localhost:8000/api/v1/unload -d '{"model": "Qwen3-0.6B-GGUF"}'
+   ```
+
 ## Hybrid and NPU Questions
 
 ### 1. **Does LLM inference with the NPU only work on Windows?**

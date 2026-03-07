@@ -20,6 +20,9 @@ struct ServerConfig {
 
     // Multi-model support: Max loaded models per type slot
     int max_loaded_models = 1;
+
+    // Idle timeout: seconds of inactivity before auto-unloading models (0 = disabled)
+    int idle_timeout = 0;
 };
 
 struct TrayConfig {

@@ -75,11 +75,14 @@ int main(int argc, char** argv) {
         if (!config.extra_models_dir.empty()) {
             LOG(INFO) << "  Extra models dir: " << config.extra_models_dir << std::endl;
         }
+        if (config.idle_timeout > 0) {
+            LOG(INFO) << "  Idle timeout: " << config.idle_timeout << "s" << std::endl;
+        }
 
         Server server(config.port, config.host, config.log_level,
                     config.recipe_options, config.max_loaded_models,
                     config.extra_models_dir, config.no_broadcast,
-                    config.global_timeout);
+                    config.global_timeout, config.idle_timeout);
 
         // Register signal handler for Ctrl+C
         g_server_instance = &server;

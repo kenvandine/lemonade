@@ -5,6 +5,8 @@
 #include <mutex>
 #include <condition_variable>
 #include <vector>
+#include <thread>
+#include <atomic>
 #include <nlohmann/json.hpp>
 #include <httplib.h>
 #include "wrapped_server.h"
@@ -21,7 +23,8 @@ public:
            const std::string& log_level,
            ModelManager* model_manager,
            int max_loaded_models,
-           BackendManager* backend_manager);
+           BackendManager* backend_manager,
+           int idle_timeout = 0);
 
     ~Router();
 
@@ -44,6 +47,9 @@ public:
 
     // Get max model limits
     json get_max_model_limits() const;
+
+    // Get idle timeout setting (seconds, 0 = disabled)
+    int get_idle_timeout() const { return idle_timeout_; }
 
     // Check if any model is loaded
     bool is_model_loaded() const;
@@ -127,6 +133,17 @@ private:
     // Generic streaming wrapper
     template<typename Func>
     void execute_streaming(const std::string& request_body, httplib::DataSink& sink, Func&& streaming_func);
+
+    // Idle timeout auto-unload
+    int idle_timeout_;  // seconds, 0 = disabled
+    std::thread idle_monitor_thread_;
+    std::atomic<bool> idle_monitor_running_{false};
+    std::condition_variable idle_monitor_cv_;
+    std::mutex idle_monitor_mutex_;
+
+    void start_idle_monitor();
+    void stop_idle_monitor();
+    void idle_monitor_loop();
 };
 
 } // namespace lemon

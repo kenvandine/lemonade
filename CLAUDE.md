@@ -32,7 +32,7 @@ Capability interfaces: `ICompletionServer`, `IEmbeddingsServer`, `IRerankingServ
 
 ### Router & Multi-Model Support
 
-`Router` (`src/cpp/server/router.cpp`) manages a vector of `WrappedServer` instances. Routes requests based on model recipe, maintains LRU caches per model type (LLM, embedding, reranking, audio), and enforces NPU exclusivity. Configurable via `--max-loaded-models`.
+`Router` (`src/cpp/server/router.cpp`) manages a vector of `WrappedServer` instances. Routes requests based on model recipe, maintains LRU caches per model type (LLM, embedding, reranking, audio), and enforces NPU exclusivity. Configurable via `--max-loaded-models`. Supports automatic idle unloading via `--idle-timeout` to free GPU/NPU resources when models are not in use.
 
 ### Model Manager & Recipe System
 

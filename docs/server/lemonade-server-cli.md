@@ -57,6 +57,7 @@ lemonade-server run MODEL_NAME [options]
 | `--flm-args [args]`            | Custom arguments to pass to FLM (FastFlowLM) server. Must not conflict with arguments managed by Lemonade (e.g., `--host`, `--port`, `--ctx-len`). Commonly used for NPU concurrency tuning. Can be overridden per-model via the `/api/v1/load` endpoint. Example: `--flm-args "-s 20 -q 15"` (socket connections and queue length). | "" |
 | `--extra-models-dir [path]`    | Experimental feature. Secondary directory to scan for LLM GGUF model files. Audio, embedding, reranking, and non-GGUF files are not supported, yet. | None |
 | `--max-loaded-models [N]`  | Maximum number of models to keep loaded per type slot (LLMs, audio, image, etc.). Use `-1` for unlimited. Example: `--max-loaded-models 5` allows up to 5 of each model type simultaneously. | `1` |
+| `--idle-timeout [seconds]` | Automatically unload models after the specified number of seconds of inactivity, freeing GPU/NPU resources. Models are reloaded on demand when the next request arrives. Use `0` to disable. Example: `--idle-timeout 300` unloads models after 5 minutes of inactivity. | `0` (disabled) |
 | `--global-timeout [seconds]` | Global default timeout for HTTP requests, inference, and readiness checks in seconds. This value sets the `CURLOPT_TIMEOUT` in the underlying HTTP client and overrides internal defaults for inference and backend startup. | 300 |
 | `--save-options` | Only available for the run command. Saves the context size, LlamaCpp backend and custom llama-server arguments as default for running this model. Unspecified values will be saved using their default value. | False |
 
@@ -86,6 +87,7 @@ These settings can also be provided via environment variables that Lemonade Serv
 | `LEMONADE_FLM_ARGS`                | Custom arguments to pass to FLM server                                                                                                                  |
 | `LEMONADE_EXTRA_MODELS_DIR`        | Secondary directory to scan for GGUF model files                                                                                                        |
 | `LEMONADE_MAX_LOADED_MODELS`       | Maximum number of models to keep loaded per type slot (LLMs, audio, image, etc.). Use `-1` for unlimited, or a positive integer. Default: `1`           |
+| `LEMONADE_IDLE_TIMEOUT`            | Automatically unload models after the specified number of seconds of inactivity. Use `0` to disable. Default: `0`                                       |
 | `LEMONADE_DISABLE_MODEL_FILTERING` | Set to `1` to disable hardware-based model filtering (e.g., RAM amount, NPU availability) and show all models regardless of system capabilities         |
 | `LEMONADE_ENABLE_DGPU_GTT`         | Set to `1` to include GTT for hardware-based model filtering |
 | `LEMONADE_GLOBAL_TIMEOUT`          | Global default timeout for HTTP requests, inference, and readiness checks in seconds |

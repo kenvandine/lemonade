@@ -65,7 +65,7 @@ static const json MIME_TYPES = {
 Server::Server(int port, const std::string& host, const std::string& log_level,
                const json& default_options, int max_loaded_models,
                const std::string& extra_models_dir, bool no_broadcast,
-               long global_timeout)
+               long global_timeout, int idle_timeout)
     : port_(port), host_(host), log_level_(log_level), default_options_(default_options),
       no_broadcast_(no_broadcast), running_(false), udp_beacon_() {
 
@@ -112,7 +112,7 @@ Server::Server(int port, const std::string& host, const std::string& log_level,
 
     router_ = std::make_unique<Router>(default_options_, log_level_,
                                        model_manager_.get(), max_loaded_models,
-                                       backend_manager_.get());
+                                       backend_manager_.get(), idle_timeout);
 
     LOG(DEBUG, "Server") << "Debug logging enabled - subprocess output will be visible" << std::endl;
 
@@ -1179,6 +1179,9 @@ void Server::handle_health(const httplib::Request& req, httplib::Response& res) 
 
     // Add max model limits
     response["max_models"] = router_->get_max_model_limits();
+
+    // Add idle timeout setting
+    response["idle_timeout"] = router_->get_idle_timeout();
 
     // Add log streaming support information
     response["log_streaming"] = {

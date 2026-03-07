@@ -77,6 +77,24 @@ static void add_serve_options(CLI::App* serve, ServerConfig& config) {
                 return "Value must be a positive integer or -1 for unlimited (got '" + val + "')";
             }
         });
+    // Idle timeout: auto-unload models after N seconds of inactivity
+    serve->add_option("--idle-timeout", config.idle_timeout,
+                   "Auto-unload models after N seconds of inactivity. Use 0 to disable.")
+        ->envname("LEMONADE_IDLE_TIMEOUT")
+        ->type_name("SECONDS")
+        ->default_val(config.idle_timeout)
+        ->check([](const std::string& val) -> std::string {
+            try {
+                int num = std::stoi(val);
+                if (num >= 0) {
+                    return "";  // Valid: 0 (disabled) or positive integer
+                }
+                return "Value must be a non-negative integer (got " + val + ")";
+            } catch (...) {
+                return "Value must be a non-negative integer (got '" + val + "')";
+            }
+        });
+
     RecipeOptions::add_cli_options(*serve, config.recipe_options);
 }
 
