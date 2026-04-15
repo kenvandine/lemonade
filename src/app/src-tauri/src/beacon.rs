@@ -14,7 +14,7 @@
 
 use crate::events;
 use serde::Deserialize;
-use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
+use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 use std::sync::atomic::{AtomicU16, Ordering};
 use std::sync::OnceLock;
 use tauri::{AppHandle, Emitter};
@@ -77,6 +77,25 @@ fn parse_beacon_message(bytes: &[u8]) -> Option<u16> {
     parse_port_from_url(&payload.url)
 }
 
+/// Create a UDP socket bound to BEACON_PORT with SO_REUSEPORT on Unix so that
+/// lemonade-server and lemonade-desktop can both receive beacon broadcasts on
+/// the same port simultaneously.
+fn bind_beacon_socket() -> std::io::Result<std::net::UdpSocket> {
+    #[cfg(unix)]
+    {
+        use socket2::{Domain, Protocol, Socket, Type};
+        let sock = Socket::new(Domain::IPV4, Type::DGRAM, Some(Protocol::UDP))?;
+        sock.set_reuse_port(true)?;
+        sock.set_nonblocking(true)?;
+        sock.bind(&SocketAddr::from(([0, 0, 0, 0], BEACON_PORT)).into())?;
+        Ok(sock.into())
+    }
+    #[cfg(not(unix))]
+    {
+        std::net::UdpSocket::bind(("0.0.0.0", BEACON_PORT))
+    }
+}
+
 /// Background listener: keeps listening for beacons and emits
 /// `server-port-updated` when the cached port actually changes. Rebinds the
 /// socket after any error and backs off for 10 seconds between retries.
@@ -90,7 +109,7 @@ pub(crate) async fn run_beacon_listener(app: AppHandle) {
             continue;
         }
 
-        let socket = match UdpSocket::bind(("0.0.0.0", BEACON_PORT)).await {
+        let socket = match bind_beacon_socket().and_then(UdpSocket::from_std) {
             Ok(s) => s,
             Err(err) => {
                 log::error!("Beacon listener bind failed: {err}, retrying in 10s");
