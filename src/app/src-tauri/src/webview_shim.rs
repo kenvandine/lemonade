@@ -104,10 +104,13 @@ fn install_platform_shim(webview: tauri::webview::PlatformWebview) {
     let wv = webview.inner();
 
     // Enable WebRTC / getUserMedia. Off by default on webkit2gtk in Tauri.
+    // Also allow HTTP (insecure) requests from the tauri:// secure scheme —
+    // without this WebKit blocks fetch() to http://localhost as mixed content.
     if let Some(settings) = wv.settings() {
         settings.set_enable_media_stream(true);
         settings.set_enable_mediasource(true);
         settings.set_enable_webrtc(true);
+        settings.set_allow_running_insecure_content(true);
     }
 
     // Auto-grant microphone/camera permission requests.
