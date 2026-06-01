@@ -84,3 +84,114 @@ Integrate OmniRouter into an existing agent by following the pattern in [`exampl
 4. If you want to pick models programmatically rather than rely on an omni model being loaded, query `GET /v1/models?show_all=true` and match the `labels` array against the "Needs a model with label" column above.
 
 The example script implements all four steps end-to-end against the `generate_image` and `text_to_speech` tools.
+
+## Managing collections via the API
+
+Omni collections are registered and managed through the same REST endpoints as regular models.
+
+### Register a collection
+
+```bash
+curl -X POST http://localhost:13305/v1/pull \
+  -H "Content-Type: application/json" \
+  -d '{
+        "model_name": "user.MyOmniKit",
+        "recipe": "collection.omni",
+        "components": ["Qwen3-0.6B-GGUF", "SD-Turbo", "Whisper-Tiny", "kokoro-v1"]
+      }'
+```
+
+All components must already be registered (built-in models, or previously pulled `user.*` models). Components that are registered but not yet downloaded are pulled automatically as part of this call.
+
+### Query collections
+
+Collections are hidden from the default `/v1/models` listing so they don't appear as plain LLMs to OpenAI-compatible clients. Use `?show_all=true` to include them:
+
+```bash
+curl "http://localhost:13305/v1/models?show_all=true"
+```
+
+You can identify a collection in the response by checking `recipe == "collection.omni"` in each model object. The `labels` array on the collection entry reflects the union of its components' labels.
+
+To discover which models are suitable for a given tool role, filter `GET /v1/models?show_all=true` by label:
+
+```python
+import requests
+
+models = requests.get("http://localhost:13305/v1/models?show_all=true").json()["data"]
+
+image_models     = [m for m in models if "image"         in m.get("labels", [])]
+tts_models       = [m for m in models if "tts"           in m.get("labels", [])]
+asr_models       = [m for m in models if "transcription" in m.get("labels", [])]
+vision_models    = [m for m in models if "vision"        in m.get("labels", [])]
+```
+
+This lets you build a dynamic model picker rather than hardcoding a specific omni model name.
+
+### Delete a collection
+
+Deleting a collection removes only the collection registry entry. Component models remain on disk and can still be used independently.
+
+```bash
+curl -X POST http://localhost:13305/v1/delete \
+  -H "Content-Type: application/json" \
+  -d '{"model_name": "user.MyOmniKit"}'
+```
+
+To also free disk space, delete each component individually after deleting the collection.
+
+## Component loading behavior
+
+When you load a collection (`POST /v1/load` or the first inference request), Lemonade loads all components eagerly — the LLM, image model, ASR model, and TTS model are all started before the first request returns. This ensures tool calls can be dispatched immediately once the collection is ready, at the cost of higher startup VRAM.
+
+**LRU eviction and collections:** Each component occupies its own LRU slot within its model type (one LLM slot, one image slot, one ASR slot, one TTS slot). If another model of the same type is loaded while a component is in its slot, that component will be evicted. After eviction, the next tool call targeting that component will re-load it automatically before the request continues — adding latency. To avoid this, set `max_loaded_models` high enough to hold all components you intend to use concurrently.
+
+**Collections do not hold model-type slots** — only their individual components do. Deleting the collection entry does not evict its components from memory.
+
+## Chat-transcription models
+
+`chat-transcription` models (e.g. Qwen2.5-Omni) are a different integration path from OmniRouter. These are LLMs that accept audio directly in the `/v1/chat/completions` message payload — you do not need tool calls or a collection. The model processes audio and text in a single forward pass.
+
+### When to use each approach
+
+| | OmniRouter (collection) | Chat-transcription model |
+|---|---|---|
+| **Mechanism** | Tool calls dispatched to separate specialized models | Single model accepts mixed audio+text |
+| **Models needed** | LLM + ASR + image + TTS (separate) | One multimodal model |
+| **VRAM** | Higher (multiple models loaded) | Lower (one model) |
+| **Flexibility** | Mix and match any compatible models | Depends on what the single model supports |
+| **Use when** | You want best-in-class per modality or hardware that fits separate models | You want the simplest integration and have a suitable multimodal model |
+
+### Sending audio in chat completions
+
+For models labeled `chat-transcription`, include an audio attachment in the `content` array of a user message using the `input_audio` content type:
+
+```bash
+curl -X POST http://localhost:13305/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{
+        "model": "Qwen2.5-Omni-7B",
+        "messages": [
+          {
+            "role": "user",
+            "content": [
+              {"type": "text", "text": "What is being said in this audio?"},
+              {
+                "type": "input_audio",
+                "input_audio": {
+                  "data": "<base64-encoded audio bytes>",
+                  "format": "wav"
+                }
+              }
+            ]
+          }
+        ]
+      }'
+```
+
+To identify `chat-transcription` models in your app:
+
+```python
+models = requests.get("http://localhost:13305/v1/models").json()["data"]
+chat_asr_models = [m for m in models if "chat-transcription" in m.get("labels", [])]
+```
