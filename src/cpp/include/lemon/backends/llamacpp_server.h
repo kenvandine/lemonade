@@ -27,6 +27,12 @@ public:
 
     ~LlamaCppServer() override;
 
+#ifdef __linux__
+private:
+    int nvidia_gpu_fd_ = -1;  // held open to prevent PRIME/NVPM from powering the GPU off
+public:
+#endif
+
     void load(const std::string& model_name,
              const ModelInfo& model_info,
              const RecipeOptions& options,

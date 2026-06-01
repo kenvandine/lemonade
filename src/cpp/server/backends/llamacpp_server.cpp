@@ -26,6 +26,7 @@
     #include <mach-o/dyld.h>
     #include <limits.h>
 #else
+    #include <fcntl.h>
     #include <sys/stat.h>
     #include <unistd.h>
 #endif
@@ -538,6 +539,19 @@ void LlamaCppServer::load(const std::string& model_name,
             env_vars.push_back({"__NV_PRIME_RENDER_OFFLOAD_PROVIDER", "NVIDIA-G0"});
             LOG(INFO, "LlamaCpp") << "Setting __NV_PRIME_RENDER_OFFLOAD=1 for PRIME Offload compatibility" << std::endl;
         }
+
+        // Hold /dev/nvidia0 open for the lifetime of this CUDA session so that
+        // NVIDIA's runtime power management cannot power the GPU off between
+        // inference requests. An open fd on the device node keeps the GPU in
+        // the active (D0) state. Closed in unload() or the destructor.
+        if (nvidia_gpu_fd_ < 0) {
+            nvidia_gpu_fd_ = ::open("/dev/nvidia0", O_RDWR);
+            if (nvidia_gpu_fd_ >= 0) {
+                LOG(INFO, "LlamaCpp") << "Holding /dev/nvidia0 open to prevent PRIME power-down between requests" << std::endl;
+            } else {
+                LOG(DEBUG, "LlamaCpp") << "/dev/nvidia0 not accessible; GPU may power down between requests" << std::endl;
+            }
+        }
 #endif
     }
 
@@ -599,6 +613,12 @@ void LlamaCppServer::unload() {
         process_handle_ = {nullptr, 0};
         port_ = 0;
     }
+#ifdef __linux__
+    if (nvidia_gpu_fd_ >= 0) {
+        ::close(nvidia_gpu_fd_);
+        nvidia_gpu_fd_ = -1;
+    }
+#endif
 }
 
 json LlamaCppServer::chat_completion(const json& request) {
