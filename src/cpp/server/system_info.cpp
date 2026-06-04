@@ -470,7 +470,7 @@ static const std::vector<RecipeBackendDef> RECIPE_DEFS = {
         {"amd_gpu", {}},      // all AMD GPU families
     }},
     {"llamacpp", "openvino", {"linux"}, {
-        {"cpu", {"x86_64"}},
+        {"intel_cpu", {}},
     }},
     {"llamacpp", "rocm", {"windows", "linux"}, {
         {"amd_gpu", {"gfx1150", "gfx1151", "gfx103X", "gfx110X", "gfx120X"}},  // STX iGPUs + RDNA2/3/4 dGPUs
@@ -576,6 +576,7 @@ static const std::map<std::string, std::string> DEVICE_FAMILY_NAMES = {
 // Maps device types to human-readable names (for error messages)
 static const std::map<std::string, std::string> DEVICE_TYPE_NAMES = {
     {"cpu", "CPU"},
+    {"intel_cpu", "Intel CPU"},
     {"amd_gpu", "AMD GPU"},
     {"amd_npu", "AMD NPU"},
     {"nvidia_gpu", "NVIDIA GPU"},
@@ -1100,6 +1101,12 @@ json SystemInfo::build_recipes_info(const json& devices) {
         std::string name = cpu.value("name", "CPU");
         std::string family = cpu.value("family", "");
         detected_devices.push_back({"cpu", name, family, true});
+        // Expose intel_cpu device type for backends that require Intel hardware (e.g. OpenVINO)
+        std::string name_lower = name;
+        std::transform(name_lower.begin(), name_lower.end(), name_lower.begin(), ::tolower);
+        if (name_lower.find("intel") != std::string::npos) {
+            detected_devices.push_back({"intel_cpu", name, family, true});
+        }
     } else {
         detected_devices.push_back({"cpu", "CPU", "", true});
     }
