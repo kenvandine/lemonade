@@ -27,6 +27,7 @@ The `lemonade` CLI is the primary tool for interacting with Lemonade Server from
 | Command             | Description                         |
 |---------------------|-------------------------------------|
 | `run MODEL_NAME`    | Load a model for inference and open the web app in the browser. See command options [below](#options-for-run). |
+| `chat [MODEL_NAME]` | Open an interactive chat REPL in the terminal. See the [chat guide](../server/cli-chat.md). |
 | `launch AGENT`      | Launch an agent with a model. See command options [below](#options-for-launch). |
 
 ### Server
@@ -37,6 +38,7 @@ The `lemonade` CLI is the primary tool for interacting with Lemonade Server from
 | `logs`              | Open server logs in the web UI. |
 | `config`            | View or update server configuration. Use `config set key=value` to change settings. See command options [below](#options-for-config). |
 | `backends`          | List available recipes and backends. Use `install` or `uninstall` to manage backends. |
+| `cloud`             | Manage cloud OpenAI-compatible providers. See command options [below](#options-for-cloud). |
 | `scan`              | Scan for network beacons on the local network. See command options [below](#options-for-scan). |
 
 ### Model Management
@@ -55,7 +57,7 @@ The `lemonade` CLI is the primary tool for interacting with Lemonade Server from
 
 | Command             | Description                         |
 |---------------------|-------------------------------------|
-| `bench MODEL_NAME`  | Benchmark a model's chat completion performance across backends and context sizes. See command options [below](#options-for-bench). |
+| `bench MODEL_NAME [MODEL_NAME ...]`  | Benchmark one or more models' chat completion performance across backends and context sizes. See command options [below](#options-for-bench). |
 
 ### Global Flags
 
@@ -141,13 +143,16 @@ lemonade load Qwen3-0.6B-GGUF --ctx-size 8192
 # Install a backend for a recipe
 lemonade backends install llamacpp:vulkan
 
+# Register a cloud OpenAI-compatible provider (see `lemonade cloud --help`)
+lemonade cloud install fireworks --base-url https://api.fireworks.ai/inference/v1
+
 # Export model info to JSON file
 lemonade export Qwen3-0.6B-GGUF --output model-info.json
 ```
 
 ## Options for list
 
-The `list` command displays available models. By default, it shows all models. Use the `--downloaded` flag to filter for downloaded models only:
+The `list` command displays all models. By default, the output is partitioned into **Local** (downloaded) and **Available for Download** sections. You can restrict the output to only local models by passing the `--downloaded` flag:
 
 ```bash
 lemonade list [options]
@@ -324,7 +329,6 @@ The following options are available depending on the recipe being used:
 | Option | Description | Default |
 |--------|-------------|---------|
 | `--ctx-size SIZE` | Context size for the model | `4096` |
-| `--flm-args ARGS` | Custom arguments to pass to flm serve (e.g., `"--socket 20 --q-len 15"`) | `""` |
 
 #### RyzenAI LLM (`ryzenai-llm` recipe)
 
@@ -458,7 +462,7 @@ lemonade config set ctx_size=8192 max_loaded_models=3 sdcpp.steps=30
 
 For the full list of supported keys and their effects, see [Server Configuration](./configuration/README.md#settings-reference).
 
-> **Note:** `lemonade config` uses the [`POST /v1/params`](../api/lemonade.md#post-v1params) endpoint internally. Changes made via `lemonade config set` are equivalent to calling that endpoint directly.
+> **Note:** `lemonade config` uses the `POST /internal/set` endpoint internally, which is a non-public endpoint intended for local CLI use. For programmatic configuration from external scripts, see [Server Configuration](./configuration/README.md).
 
 ## Options for backends
 
@@ -510,7 +514,7 @@ lemonade launch [AGENT] [--model MODEL_NAME] [options]
 
 | Option/Argument | Description | Required |
 |-----------------|-------------|----------|
-| `AGENT` | Agent name to launch. Supported agents: `claude`, `codex`, `opencode`. If omitted, you will be prompted to select one. | No |
+| `AGENT` | Agent name to launch. Supported agents: `claude`, `codex`, `opencode`, `pi`. If omitted, you will be prompted to select one. | No |
 | `--model MODEL_NAME` | Model name to launch with. If omitted, you will be prompted to select one. | No |
 | `--directory DIR` | Remote recipes directory used only if you choose recipe import at prompt | No |
 | `--recipe-file FILE` | Remote recipe JSON filename used only if you choose recipe import at prompt | No |
@@ -532,9 +536,10 @@ Codex-only option:
 - `--provider` is accepted only by `lemonade launch codex` and is passed directly to Codex as `model_provider`; provider resolution/errors are handled by Codex.
 - Existing `LEMONADE_*` recipe env vars such as `LEMONADE_CTX_SIZE` are still honored by `launch`.
 - `--agent-args` is parsed and appended to the launched agent command.
-- Supported agents: `claude`, `codex`, `opencode`
+- Supported agents: `claude`, `codex`, `opencode`, `pi`
 - `opencode` uses an auto-managed config file at `~/.config/opencode/opencode.json`.
-- When no `--api-key` is provided, the generated opencode provider uses a default `apiKey` value of `lemonade`.
+- `pi` uses auto-managed config files at `~/.pi/agent/models.json` and `~/.pi/agent/settings.json`.
+- When no `--api-key` is provided, the generated `opencode` and `pi` providers use a default `apiKey` value of `lemonade`.
 
 **Examples:**
 
@@ -558,6 +563,73 @@ lemonade launch claude --model Qwen3.5-0.8B-GGUF --agent-args "--resume SESSION_
 
 # Launch and allow optional prompt-driven recipe import using prefilled remote recipe flags
 lemonade launch claude --directory coding-agents --recipe-file Qwen3.5-35B-A3B-NoThinking.json
+```
+
+## Options for cloud
+
+The `cloud` command manages OpenAI-compatible cloud providers (Fireworks, OpenAI, OpenRouter, Together, etc.). Provider URLs persist in `lemond`'s `config.json`; API keys live in env vars (preferred) or `lemond`'s process memory and are never written to disk. See the [Cloud Offload guide](./configuration/cloud.md) for the full workflow.
+
+```bash
+lemonade cloud [install|uninstall|auth|clear|list]
+```
+
+### `cloud install`
+
+Register a new cloud provider. Optional `--api-key` stores the key in process memory for the lifetime of the running `lemond`; for persistence across restarts, set `LEMONADE_<PROVIDER>_API_KEY` in `lemond`'s environment instead.
+
+```bash
+lemonade cloud install PROVIDER --base-url URL [--api-key KEY]
+```
+
+| Argument | Required | Description |
+|----------|----------|-------------|
+| `PROVIDER` | Yes | Short identifier (e.g. `fireworks`). Used as the model-name prefix. |
+| `--base-url URL` | Yes | OpenAI-compatible base URL ending in `/v1` (or equivalent). |
+| `--api-key KEY` | No | Optional. Stored in `lemond` process memory only. |
+
+Example:
+
+```bash
+lemonade cloud install fireworks --base-url https://api.fireworks.ai/inference/v1
+```
+
+### `cloud uninstall`
+
+Remove a provider record and drop its discovered models from the catalog. The provider's env-var-based key (if any) is unaffected — only the persisted URL and any in-memory runtime key are cleared.
+
+```bash
+lemonade cloud uninstall PROVIDER
+```
+
+### `cloud auth`
+
+Supply an API key for an installed provider at runtime. The key lives in `lemond`'s process memory only and is cleared on restart. If `LEMONADE_<PROVIDER>_API_KEY` is already set in `lemond`'s environment, this command refuses with a conflict error (env vars take precedence).
+
+```bash
+lemonade cloud auth PROVIDER [--api-key KEY]
+```
+
+With no `--api-key`, the command prompts for the key interactively (TTY only).
+
+| Argument | Required | Description |
+|----------|----------|-------------|
+| `PROVIDER` | Yes | Installed provider name. |
+| `--api-key KEY` | No | API key. If omitted, prompted on TTY. |
+
+### `cloud clear`
+
+Clear the in-memory runtime key for a provider. Any env-var key remains in effect.
+
+```bash
+lemonade cloud clear PROVIDER
+```
+
+### `cloud list`
+
+Print every installed cloud provider with its base URL, the canonical env-var name, current auth status (`env_var_set`, `runtime_key_set`), and the number of models discovered.
+
+```bash
+lemonade cloud list
 ```
 
 ## Options for scan
@@ -590,17 +662,17 @@ lemonade scan --duration 5
 
 ## Options for bench
 
-The `bench` command measures chat completion performance (TTFT and tokens-per-second) for a given model across one or more installed backends, context sizes, and scenario workloads. It sends `POST /api/v1/chat/completions` requests and extracts timing data from the server response.
+The `bench` command measures chat completion performance (TTFT and tokens-per-second) for one or more models across one or more installed backends, context sizes, and scenario workloads. It sends `POST /api/v1/chat/completions` requests and extracts timing data from the server response.
 
 ```
-lemonade bench [options] MODEL_NAME
+lemonade bench [options] MODEL_NAME [MODEL_NAME ...]
 ```
 
 ### Required Arguments
 
 | Argument | Description |
 |----------|-------------|
-| `MODEL_NAME` | Registered model name to benchmark |
+| `MODEL_NAME [MODEL_NAME ...]` | One or more registered model names to benchmark. The list of models will be deduplicated before starting the benchmark. |
 
 ### Options
 
@@ -620,8 +692,16 @@ lemonade bench [options] MODEL_NAME
 | `--no-memory` | Disable VRAM/RAM tracking | Tracking enabled |
 | `--no-reload` | Skip model reload between scenarios (faster, but prompt cache may skew results) | Model reloaded |
 | `--llamacpp-args ARGS` | Custom args for llama-server (e.g. `"-b 2048 -ub 1024"`). Repeat for multiple arg sets. | — |
-| `--flm-args ARGS` | Custom args for flm serve. Repeat for multiple. | — |
 | `--vllm-args ARGS` | Custom args for vllm-server. Repeat for multiple. | — |
+
+**Preflight behavior:**
+- Before benchmarking starts, `bench` validates that every requested model is available.
+- If any model is missing or not downloaded and `--auto-pull` is not set, the command exits before running any scenario.
+- With `--auto-pull`, `bench` pulls any missing/not-downloaded models first, then starts benchmarking.
+
+**Timestamp behavior:**
+- Top-level `timestamp` is the command invocation time.
+- Each per-model result includes its own `timestamp` for when that model run started.
 
 ### Scenario Files
 
@@ -682,10 +762,18 @@ code-short          46.1    44.3    47.8    168.9   162.3   175.4   1.2
 #### JSON Output
 
 With `--json`, results are emitted as structured JSON. Use `--output FILE` to save them for later comparison with `--compare`.
+The top-level JSON always includes a `models` array, even for single-model runs, so downstream tooling can handle a single schema for all benchmark results.
+Each scenario includes `duration_ms` stats (`mean`, `min`, `max`, `p50`, `p95`) representing end-to-end request time per run.
 
 ### Comparison Mode
 
-Pass `--compare PREVIOUS.json` to compare current results against a saved JSON file. This shows percentage change in TTFT and TPS, plus VRAM delta:
+Pass `--compare PREVIOUS.json` to compare current results against a saved JSON file. This shows percentage change in TTFT and TPS, plus VRAM delta.
+
+Model matching behavior:
+- Models are matched by model name.
+- If a model exists in the current run but not in the previous run, it is reported as **new** and scenario deltas are left blank.
+- If a model exists in the previous run but not in the current run, it is reported as **removed** in the model-set summary.
+- Matched models get full per-scenario delta analysis.
 
 ```bash
 # Save a baseline
@@ -693,6 +781,9 @@ lemonade bench --output baseline.json Qwen3-0.6B-GGUF
 
 # Later, compare after a change
 lemonade bench --compare baseline.json Qwen3-0.6B-GGUF
+
+# Compare multiple models against a previous multi-model run
+lemonade bench --compare baseline-multi.json Bonsai-1.7B Gemma-4-E4B Gemma3-4B
 ```
 
 The comparison table marks each scenario as:
@@ -709,6 +800,9 @@ The comparison table marks each scenario as:
 ```bash
 # Benchmark with default scenarios and all installed backends
 lemonade bench Qwen3-0.6B-GGUF
+
+# Benchmark multiple models in one run. Note that Bonsai-4B is listed twice; it will only be tested once.
+lemonade bench Bonsai-4B-gguf Gemma-4-E4B-it-GGUF Phi-4-mini-instruct-GGUF Qwen3-4B-GGUF Bonsai-4B-gguf Qwen3.5-4B-GGUF
 
 # Benchmark specific backends and context sizes
 lemonade bench --backend vulkan --backend cpu --ctx-size 4096 8192 Qwen3-0.6B-GGUF
