@@ -28,7 +28,7 @@ Generate a response given a list of messages. Mirrors the [Anthropic Messages AP
 | `top_p` | No | Nucleus sampling probability. | <sub>![Status](https://img.shields.io/badge/available-green)</sub> |
 | `top_k` | No | Top-k sampling. | <sub>![Status](https://img.shields.io/badge/available-green)</sub> |
 | `metadata` | No | Ignored. Accepted silently. | <sub>![Status](https://img.shields.io/badge/not_available-red)</sub> |
-| `thinking` | No | Ignored. Accepted silently. | <sub>![Status](https://img.shields.io/badge/not_available-red)</sub> |
+| `thinking` | No | Partially supported. `thinking.type: "enabled"` sets `enable_thinking: true`; `"disabled"` sets `enable_thinking: false`. Other `type` values are ignored with a warning. | <sub>![Status](https://img.shields.io/badge/partial-yellow)</sub> |
 
 Query parameters such as `?beta=true` are accepted and ignored.
 

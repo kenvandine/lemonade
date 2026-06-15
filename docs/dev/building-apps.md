@@ -302,7 +302,7 @@ With the OpenAI SDK:
 client = OpenAI(base_url="http://localhost:13305/v1", api_key="my-secret-key")
 ```
 
-`LEMONADE_ADMIN_API_KEY` provides elevated access including management endpoints (`/v1/log-level`, `/internal/*`). Keep admin keys out of client-side code.
+`LEMONADE_ADMIN_API_KEY` provides elevated access including management endpoints (`/internal/*`). Keep admin keys out of client-side code.
 
 See [API Key and Security](../guide/configuration/README.md#api-key-and-security) for the full authentication hierarchy.
 
