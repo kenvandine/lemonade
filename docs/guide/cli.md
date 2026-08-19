@@ -458,6 +458,14 @@ The following options are available depending on the recipe being used:
 | Option | Description | Default |
 |--------|-------------|---------|
 | `--openmoss BACKEND` | OpenMOSS TTS backend to use | Auto-detected |
+
+#### GenieX (llama.cpp) (`geniex-llamacpp` recipe)
+
+| Option | Description | Default |
+|--------|-------------|---------|
+| `--ctx-size SIZE` | Context size for the model | auto |
+| `--geniex BACKEND` | GenieX compute unit to use (npu, gpu, cpu) | Auto-detected |
+| `--geniex-args ARGS` | Custom arguments to pass to geniex serve | `""` |
 <!-- END GENERATED: cli-recipe-options -->
 **Notes:**
 - Unspecified options will use the backend's default values

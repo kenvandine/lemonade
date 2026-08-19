@@ -54,6 +54,9 @@ Values set in the user's `config.json` always take precedence over these seeded 
     "args": "",
     "prefer_system": false
   },
+  "geniex": {
+    "backend": "auto"
+  },
   "global_timeout": 600,
   "host": "localhost",
   "inhibit_suspend": true,

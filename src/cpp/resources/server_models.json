@@ -886,6 +886,16 @@
         ],
         "size": 0.18
     },
+    "Qwen3-0.6B-GenieX-GGUF": {
+        "checkpoint": "unsloth/Qwen3-0.6B-GGUF:Q4_0",
+        "recipe": "geniex-llamacpp",
+        "suggested": false,
+        "labels": [
+            "chat",
+            "reasoning"
+        ],
+        "size": 0.38
+    },
     "Qwen3-1.7B-GGUF": {
         "checkpoint": "unsloth/Qwen3-1.7B-GGUF:Q4_0",
         "recipe": "llamacpp",

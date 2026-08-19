@@ -17,6 +17,7 @@ Usage:
     python server_llm.py --wrapped-server ryzenai --backend hybrid
     python server_llm.py --wrapped-server ryzenai --backend npu
     python server_llm.py --wrapped-server flm
+    python server_llm.py --wrapped-server geniex --backend npu  # Snapdragon Linux ARM64 only
 """
 
 import asyncio

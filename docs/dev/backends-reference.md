@@ -11,6 +11,7 @@ the generator instead. Prose outside the markers is preserved. -->
 |--------|------|--------------------|---------------|----------|
 | `acestep` | ACE-Step | yes | no | cuda, rocm, vulkan |
 | `flm` | FastFlowLM NPU | no | yes | npu |
+| `geniex-llamacpp` | GenieX (llama.cpp) | yes | yes | cpu, gpu, npu |
 | `kokoro` | Kokoro | no | no | cpu, metal |
 | `llamacpp` | Llama.cpp GPU | yes | yes | cpu, cuda, metal, rocm, system, vulkan |
 | `moonshine` | Moonshine | no | no | cpu |
@@ -34,6 +35,9 @@ the generator instead. Prose outside the markers is preserved. -->
 | `acestep` | vulkan | linux, windows | amd_gpu; cpu (x86_64); nvidia_gpu |
 | `acestep` | rocm | linux, windows | amd_gpu (gfx103X, gfx110X, gfx1150, gfx1151, gfx1152, gfx120X) |
 | `flm` | npu | linux, windows | amd_npu (XDNA2) |
+| `geniex-llamacpp` | npu | linux | qualcomm_npu (Hexagon) |
+| `geniex-llamacpp` | gpu | linux | qualcomm_gpu (Adreno) |
+| `geniex-llamacpp` | cpu | linux | cpu (arm64) |
 | `kokoro` | metal | macos | metal |
 | `kokoro` | cpu | linux, windows | cpu (x86_64) |
 | `llamacpp` | system | linux | cpu (arm64, x86_64) |
@@ -94,6 +98,14 @@ the generator instead. Prose outside the markers is preserved. -->
 |--------|----------|------|---------|-------------|
 | `ctx_size` | `--ctx-size` | SIZE | -1 | Context size for the model |
 | `flm_args` | `--flm-args` | ARGS | "" | Safe flm serve tuning args: --pmode, --prefill-chunk-len, --img-pre-resize, --socket, --q-len, --preemption |
+
+#### `geniex-llamacpp` — GenieX (llama.cpp)
+
+| Option | CLI flag | Type | Default | Description |
+|--------|----------|------|---------|-------------|
+| `ctx_size` | `--ctx-size` | SIZE | -1 | Context size for the model |
+| `geniex_backend` | `--geniex` | BACKEND | "" | GenieX compute unit to use (npu, gpu, cpu) |
+| `geniex_args` | `--geniex-args` | ARGS | "" | Custom arguments to pass to geniex serve |
 
 #### `llamacpp` — Llama.cpp GPU
 

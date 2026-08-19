@@ -19,6 +19,9 @@
     "args": "",
     "prefer_system": false
   },
+  "geniex": {
+    "backend": "auto"
+  },
   "global_timeout": 600,
   "host": "localhost",
   "inhibit_suspend": true,

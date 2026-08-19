@@ -6,6 +6,7 @@ const RAW_BASE = 'https://raw.githubusercontent.com/lemonade-sdk/lemonade';
 const RECIPE_PRIORITY = [
   'acestep',
   'flm',
+  'geniex-llamacpp',
   'kokoro',
   'llamacpp',
   'moonshine',
@@ -32,7 +33,8 @@ const RECIPE_DISPLAY_NAMES = {
   acestep: 'ACE-Step',
   onnxruntime: 'ONNX Runtime',
   trellis: 'TRELLIS.2',
-  openmoss: 'OpenMOSS TTS'
+  openmoss: 'OpenMOSS TTS',
+  'geniex-llamacpp': 'GenieX (Qualcomm Snapdragon)'
 };
 /* END GENERATED: models-js-recipes */
 

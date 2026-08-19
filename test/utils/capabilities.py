@@ -132,6 +132,36 @@ CAPABILITIES = {
                 "embedding": "embed-gemma-300m-FLM",
             },
         },
+        "geniex": {
+            # GenieX (https://github.com/qualcomm/GenieX) only ships prebuilt
+            # binaries for Linux ARM64 (Snapdragon), so these tests can only
+            # run on that hardware/CI runner. Not exercised on this dev box.
+            "backends": ["npu", "gpu", "cpu"],
+            "supports": {
+                "chat_completions": True,
+                "chat_completions_streaming": True,
+                "chat_completions_async": True,
+                "completions": True,
+                "completions_streaming": True,
+                "completions_async": True,
+                "responses_api": False,
+                "responses_api_streaming": False,
+                "embeddings": False,
+                "embeddings_batch": False,
+                "reranking": False,
+                "tool_calls": False,
+                "tool_calls_streaming": False,
+                "multi_model": False,
+                "stop_parameter": True,
+                "echo_parameter": False,
+                "generation_parameters": False,
+                "slots": False,
+                "static_max_context_window": False,
+            },
+            "test_models": {
+                "llm": "Qwen3-0.6B-GenieX-GGUF",
+            },
+        },
     },
     "whisper": {
         "whispercpp": {
