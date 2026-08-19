@@ -26,8 +26,12 @@ public:
     ~GenieXServer() override;
 
     // Runs `geniex pull <checkpoint> [--force]` to register the model in
-    // GenieX's cache before it can be referenced by `geniex serve`.
-    void pull_model(const std::string& checkpoint, bool do_not_upgrade);
+    // GenieX's cache before it can be referenced by `geniex serve`. exe_path
+    // must be the already-resolved binary for the compute unit being used;
+    // pulling doesn't itself depend on the compute unit, but reusing the
+    // resolved path avoids re-resolving against a backend that may not be
+    // the one actually installed/supported on this system.
+    void pull_model(const std::string& exe_path, const std::string& checkpoint, bool do_not_upgrade);
 
     void load(const std::string& model_name,
              const ModelInfo& model_info,
@@ -41,8 +45,26 @@ public:
     json completion(const json& request) override;
     json responses(const json& request) override;
 
+    // Streaming requests (used by the web UI and any client sending
+    // `stream: true`) bypass chat_completion()/completion() and go straight
+    // through Router::chat_completion_stream() -> forward_streaming_request(),
+    // so the model-id rewrite has to be applied here too (see FastFlowLMServer
+    // for the same pattern).
+    void forward_streaming_request(const std::string& endpoint,
+                                   const std::string& request_body,
+                                   httplib::DataSink& sink,
+                                   bool sse = true,
+                                   long timeout_seconds = 0,
+                                   TelemetryCallback telemetry_callback = nullptr) override;
+
 private:
     std::string resolve_binary_path(const std::string& backend);
+
+    // geniex's /v1/chat/completions and /v1/completions look models up by the
+    // checkpoint id it was pulled under (e.g. "unsloth/Qwen3-0.6B-GGUF:Q4_0"),
+    // not Lemonade's model name (e.g. "Qwen3-0.6B-GenieX-GGUF"), so the
+    // "model" field must be rewritten before forwarding.
+    json with_geniex_model_id(const json& request) const;
 
     bool is_loaded_ = false;
 };

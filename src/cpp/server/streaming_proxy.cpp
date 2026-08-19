@@ -138,22 +138,45 @@ void StreamingProxy::forward_sse_stream(
             }
 
             line_buffer.append(data, length);
-            process_sse_lines(line_buffer, process_line);
 
-            std::string chunk(data, length);
-            if (!has_first_token && chunk.find("data: ") != std::string::npos) {
-                has_first_token = true;
-                time_to_first_token = std::chrono::duration<double>(
-                    std::chrono::steady_clock::now() - start_time).count();
-            }
+            // Some backends (e.g. GenieX) emit "data:{...}" with no space
+            // after the colon. That's not spec-compliant SSE, and strict
+            // clients (e.g. the web UI's fetch-stream parser, which only
+            // matches "data: ") silently drop such lines. Normalize each
+            // line to the canonical "data: " prefix before both telemetry
+            // parsing and forwarding to the client.
+            bool wrote_any = false;
+            for (;;) {
+                size_t pos = line_buffer.find('\n');
+                if (pos == std::string::npos) break;
+                std::string line = line_buffer.substr(0, pos);
+                line_buffer.erase(0, pos + 1);
+                if (!line.empty() && line.back() == '\r') {
+                    line.pop_back();
+                }
 
-            if (chunk.find("data: [DONE]") != std::string::npos) {
-                has_done_marker = true;
-            }
+                if (line.rfind("data:", 0) == 0 && (line.size() == 5 || line[5] != ' ')) {
+                    line.insert(5, " ");
+                }
 
-            if (!sink.write(data, length)) {
-                return false;
+                process_line(line);
+
+                if (!has_first_token && line.find("data: ") == 0) {
+                    has_first_token = true;
+                    time_to_first_token = std::chrono::duration<double>(
+                        std::chrono::steady_clock::now() - start_time).count();
+                }
+                if (line.find("data: [DONE]") == 0) {
+                    has_done_marker = true;
+                }
+
+                std::string out_line = line + "\n";
+                if (!sink.write(out_line.c_str(), out_line.size())) {
+                    return false;
+                }
+                wrote_any = true;
             }
+            (void)wrote_any;
 
             return true;
         },
